@@ -1,0 +1,30 @@
+# https://docs.github.com/en/actions/creating-actions/creating-a-composite-action
+name: "Test custom"
+description: "Custom test step to run during a pull request"
+# this inputs are always provided by flowzone, so they must always be defined on the composite action
+inputs:
+  json:
+    description: "JSON stringified object containing all the inputs from the calling workflow"
+    required: true
+  secrets:
+    description: "JSON stringified object containing all the secrets from the calling workflow"
+    required: true
+  variables:
+    description: "JSON stringified object containing all the variables from the calling workflow"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Dump context
+      shell: bash
+      env:
+        GITHUB: ${{ toJSON(github) }}
+        INPUTS: ${{ inputs.json }}
+        VARIABLES: ${{ toJSON(inputs.variables) }}
+      run: |
+        echo "${GITHUB}"
+        echo "${INPUTS}"
+        echo "${VARIABLES}"
+        echo "matrix_value=${matrix_value}"
+        echo "os_value=${os_value}"
+        echo "Is it working now?"
