@@ -31,20 +31,11 @@ jobs:
       jobs_timeout_minutes: 360
       working_directory: .
 
-      # JSON array of runner label strings for default jobs.
-      # Type: string
-      # Required: false
-      runs_on: >
-        [
-          "ubuntu-24.04"
-        ]
-
       # Do not execute custom actions for external contributors. Only remove this restriction if
       # custom actions have been vetted as secure.
       # Type: boolean
       # Required: false
       restrict_custom_actions: true
-
 
       # Set to false to disable toggling auto-merge on PRs.
       # Type: boolean

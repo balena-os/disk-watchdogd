@@ -25,65 +25,6 @@ static int debug_mode = 0;
     } \
 } while(0)
 
-// this test will overwrite the file with test data and check for write errors
-int test_write(const char *filename) {
-    void *write_buf;
-    int fd;
-    ssize_t ret;
-    int i;
-    const int write_chunks = 10; // Write 10 * BUFFER_SIZE
-
-    // it's necessary to align the buffer to the page size because O_DIRECT requires it
-    if (posix_memalign(&write_buf, BUFFER_SIZE, BUFFER_SIZE)) {
-        fprintf(stderr, "posix_memalign failed for write buffer\n");
-        return 1;
-    }
-    memset(write_buf, 'A', BUFFER_SIZE);
-
-    fd = open(filename, O_CREAT | O_WRONLY | O_TRUNC | O_DIRECT, 0666);
-    if (fd < 0) {
-        fprintf(stderr, "open failed: %s\n", strerror(errno));
-        free(write_buf);
-        return 2;
-    }
-
-    // Write multiple chunks to test sustained I/O
-    for (i = 0; i < write_chunks; i++) {
-        ret = write(fd, write_buf, BUFFER_SIZE);
-        if (ret < 0) {
-            fprintf(stderr, "write failed on chunk %d: %s\n", i, strerror(errno));
-            close(fd);
-            free(write_buf);
-            return 3;
-        }
-        if (ret != BUFFER_SIZE) {
-            fprintf(stderr, "partial write on chunk %d: %zd/%d bytes\n", i, ret, BUFFER_SIZE);
-            close(fd);
-            free(write_buf);
-            return 4;
-        }
-    }
-
-    if (fsync(fd) < 0) {
-        fprintf(stderr, "fsync failed: %s\n", strerror(errno));
-        close(fd);
-        free(write_buf);
-        return 5;
-    }
-
-    if (close(fd) < 0) {
-        fprintf(stderr, "close failed: %s\n", strerror(errno));
-        free(write_buf);
-        return 6;
-    }
-
-    free(write_buf);
-
-    sync();
-    sync();
-    return 0; // Success
-}
-
 int test_read(const char *filename) {
     void *read_buf;
     int fd;
