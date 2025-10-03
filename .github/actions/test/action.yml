@@ -15,16 +15,36 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Dump context
+    - name: Install systemd development packages and valgrind
       shell: bash
-      env:
-        GITHUB: ${{ toJSON(github) }}
-        INPUTS: ${{ inputs.json }}
-        VARIABLES: ${{ toJSON(inputs.variables) }}
       run: |
-        echo "${GITHUB}"
-        echo "${INPUTS}"
-        echo "${VARIABLES}"
-        echo "matrix_value=${matrix_value}"
-        echo "os_value=${os_value}"
-        echo "Is it working now?"
+        sudo apt update
+        sudo apt install -y libsystemd0 libsystemd-dev valgrind
+
+    - name: Build disk-watchdogd
+      shell: bash
+      run: |
+        make clean
+        make
+
+    - name: Build disk-watchdogd with valgrind
+      shell: bash
+      run: |
+        make valgrind
+
+    - name: Test executable
+      shell: bash
+      run: |
+        ./valgrind-disk-watchdogd --help
+        ./disk-watchdogd --help
+
+    - name: Run valgrind
+      shell: bash
+      run: |
+        timeout --preserve-status 2s \
+          valgrind --leak-check=full \
+            --show-leak-kinds=all \
+            --track-origins=yes \
+            --verbose \
+            --error-exitcode=1 \
+            ./valgrind-disk-watchdogd -v -d -f ./valgrind-disk-watchdogd -i 100
