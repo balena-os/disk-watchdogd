@@ -4,7 +4,7 @@ TARGET = disk-watchdogd
 
 SOURCES = disk-watchdog.c
 
-CFLAGS += -D_GNU_SOURCE -Wall -Werror -pedantic
+CFLAGS += -Wall -Werror -pedantic
 
 LDFLAGS += -lsystemd
 
