@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
 
-#define BUFFER_SIZE 512
+#define DEFAULT_BLOCK_SIZE 512
 #define DEFAULT_INTERVAL 10000  /* 10ms in microseconds */
 
 static volatile int running = 1;
@@ -18,6 +18,7 @@ static char *test_file = NULL;
 static int interval_us = DEFAULT_INTERVAL;
 static int verbose_mode = 0;
 static int debug_mode = 0;
+static int block_size = DEFAULT_BLOCK_SIZE;
 
 #define LOG_VERBOSE(fmt, ...) do { \
     if (verbose_mode) { \
@@ -33,12 +34,12 @@ int test_read(const char *filename) {
     off_t bytes_read;
     ssize_t ret;
 
-    // it's necessary to align the buffer to the page size because O_DIRECT requires it
-    if (posix_memalign(&read_buf, BUFFER_SIZE, BUFFER_SIZE)) {
+    // align to the device logical block size for O_DIRECT
+    if (posix_memalign(&read_buf, block_size, block_size)) {
         fprintf(stderr, "posix_memalign failed for read buffer\n");
         return 1;
     }
-    memset(read_buf, 0, BUFFER_SIZE);
+    memset(read_buf, 0, block_size);
 
     fd = open(filename, O_RDONLY | O_DIRECT);
     if (fd < 0) {
@@ -57,12 +58,12 @@ int test_read(const char *filename) {
 
     lseek(fd, 0, SEEK_SET); // Reset to beginning
 
-    /* For O_DIRECT, only read complete BUFFER_SIZE blocks to avoid alignment issues */
-    off_t aligned_size = (file_size / BUFFER_SIZE) * BUFFER_SIZE;
+    /* For O_DIRECT, only read complete block_size blocks to avoid alignment issues */
+    off_t aligned_size = (file_size / block_size) * block_size;
     
     bytes_read = 0;
     while (bytes_read < aligned_size) {
-        ret = read(fd, read_buf, BUFFER_SIZE);
+        ret = read(fd, read_buf, block_size);
         if (ret < 0) {
             fprintf(stderr, "read failed at offset %ld: %s\n", bytes_read, strerror(errno));
             close(fd);
@@ -73,8 +74,8 @@ int test_read(const char *filename) {
             close(fd);
             free(read_buf);
             return 5;
-        } else if (ret != BUFFER_SIZE) {
-            fprintf(stderr, "partial read at offset %ld: %zd/%d bytes\n", bytes_read, ret, BUFFER_SIZE);
+        } else if (ret != block_size) {
+            fprintf(stderr, "partial read at offset %ld: %zd/%d bytes\n", bytes_read, ret, block_size);
             close(fd);
             free(read_buf);
             return 6;
@@ -103,6 +104,7 @@ static void print_usage(const char *prog_name) {
     printf("Options:\n");
     printf("  -f, --file PATH      Test file path (required)\n");
     printf("  -i, --interval MS    Test interval in milliseconds (default: %d)\n", DEFAULT_INTERVAL / 1000);
+    printf("  -b, --block-size N   Logical block size in bytes for O_DIRECT (default: %d)\n", DEFAULT_BLOCK_SIZE);
     printf("  -h, --help           Show this help message\n");
     printf("  -v, --verbose        Enable verbose output\n");
     printf("  -d, --debug          Debug mode (verbose + no systemd notify)\n");
@@ -114,13 +116,14 @@ static int parse_args(int argc, char *argv[]) {
     static struct option long_options[] = {
         {"file",     required_argument, 0, 'f'},
         {"interval", required_argument, 0, 'i'},
+        {"block-size", required_argument, 0, 'b'},
         {"help",     no_argument,       0, 'h'},
         {"verbose",  no_argument,       0, 'v'},
         {"debug",    no_argument,       0, 'd'},
         {0, 0, 0, 0}
     };
 
-    while ((opt = getopt_long(argc, argv, "f:i:hvd", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "f:i:b:hvd", long_options, NULL)) != -1) {
         switch (opt) {
             case 'f':
                 test_file = strdup(optarg);
@@ -136,6 +139,15 @@ static int parse_args(int argc, char *argv[]) {
                     return -1;
                 }
                 break;
+            case 'b': {
+                int parsed = atoi(optarg);
+                if (parsed <= 0) {
+                    fprintf(stderr, "Invalid block size: %s\n", optarg);
+                    return -1;
+                }
+                block_size = parsed;
+                break;
+            }
             case 'v':
                 verbose_mode = 1;
                 break;
@@ -179,6 +191,7 @@ static int parse_args(int argc, char *argv[]) {
     LOG_VERBOSE("Configuration:\n");
     LOG_VERBOSE("  Test file: %s\n", test_file);
     LOG_VERBOSE("  Interval: %d ms\n", interval_us / 1000);
+    LOG_VERBOSE("  Block size: %d bytes\n", block_size);
     if (debug_mode) {
         LOG_VERBOSE("  Debug mode: ON (systemd notify disabled)\n");
     }
