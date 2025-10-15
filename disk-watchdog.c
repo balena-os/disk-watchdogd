@@ -8,6 +8,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <inttypes.h>
 #include <systemd/sd-daemon.h>
 
 #define DEFAULT_BLOCK_SIZE 512
@@ -65,17 +66,17 @@ int test_read(const char *filename) {
     while (bytes_read < aligned_size) {
         ret = read(fd, read_buf, block_size);
         if (ret < 0) {
-            fprintf(stderr, "read failed at offset %ld: %s\n", bytes_read, strerror(errno));
+            fprintf(stderr, "read failed at offset %" PRIdMAX ": %s\n", (intmax_t)bytes_read, strerror(errno));
             close(fd);
             free(read_buf);
             return 4;
         } else if (ret == 0) {
-            fprintf(stderr, "unexpected EOF at offset %ld\n", bytes_read);
+            fprintf(stderr, "unexpected EOF at offset %" PRIdMAX "\n", (intmax_t)bytes_read);
             close(fd);
             free(read_buf);
             return 5;
         } else if (ret != block_size) {
-            fprintf(stderr, "partial read at offset %ld: %zd/%d bytes\n", bytes_read, ret, block_size);
+            fprintf(stderr, "partial read at offset %" PRIdMAX ": %zd/%d bytes\n", (intmax_t)bytes_read, ret, block_size);
             close(fd);
             free(read_buf);
             return 6;
@@ -175,7 +176,7 @@ static int parse_args(int argc, char *argv[]) {
         uint64_t watchdog_usec = 0;
         int watchdog_enabled = sd_watchdog_enabled(0, &watchdog_usec);
         if (watchdog_enabled > 0) {
-            LOG_VERBOSE("Systemd watchdog enabled: timeout = %lu microseconds (%.1f seconds)\n",
+            LOG_VERBOSE("Systemd watchdog enabled: timeout = %" PRIu64 " microseconds (%.1f seconds)\n",
                        watchdog_usec, watchdog_usec / 1000000.0);
             /* Always override interval when systemd watchdog is enabled for safety */
             if (interval_us != DEFAULT_INTERVAL) {
