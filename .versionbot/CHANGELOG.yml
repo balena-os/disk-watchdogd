@@ -1,0 +1,14 @@
+- commits:
+    - subject: add vanilla Flowzone
+      hash: fefb9352ff515e9e96c67975315c7a27511669c7
+      body: ""
+      footer:
+        Signed-off-by: Yann CARDAILLAC <yann.cardaillac@balena.io>
+        signed-off-by: Yann CARDAILLAC <yann.cardaillac@balena.io>
+        Change-type: patch
+        change-type: patch
+      author: Yann CARDAILLAC
+      nested: []
+  version: 0.0.2
+  title: ""
+  date: 2025-11-04T13:25:47.816Z
